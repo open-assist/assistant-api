@@ -8,36 +8,58 @@ import {
   genPrimaryIndexKey,
   genPrimaryKey,
 } from "$/models/assistant.ts";
-import { DbCommitError, ValidationError } from "$/models/errors.ts";
+import { DbCommitError } from "$/models/errors.ts";
+import {
+  genListOptions,
+  genListSelector,
+  LIST,
+  List,
+  listParamsSchema,
+} from "$/models/list.ts";
 
 // deno-lint-ignore ban-ts-comment
 // @ts-ignore
 const kv = await Deno.openKv();
 
+const parseParams = (req: Request) =>
+  Object.fromEntries((new URL(req.url)).searchParams);
+
 export const handler: Handlers<Assistant | null> = {
-  async GET(_req: Request, ctx: FreshContext) {
+  async GET(req: Request, ctx: FreshContext) {
+    const listParams = listParamsSchema.parse(parseParams(req));
     const organization = ctx.state.organization as string;
 
-    const iter = await kv.list<Assistant>({
-      prefix: genPrimaryIndexKey(organization),
-    });
+    const iter = await kv.list<Assistant>(
+      genListSelector(
+        organization,
+        listParams,
+        genPrimaryKey,
+        genPrimaryIndexKey,
+      ),
+      genListOptions(listParams),
+    );
     const assistants = [];
     for await (const res of iter) {
       const value = res.value as Assistant;
       value.object = ASSISTANT;
       assistants.push(value);
     }
-    return renderJSON(assistants);
+
+    const list: List<Assistant> = {
+      object: LIST,
+      data: assistants,
+      first_id: assistants.length > 0 ? assistants[0].id : undefined,
+      last_id: assistants.length > 0
+        ? assistants[assistants.length - 1].id
+        : undefined,
+      has_more: false,
+    };
+    return renderJSON(list);
   },
 
   async POST(req, ctx) {
-    const result = assistantSchema.safeParse(await req.json());
-    if (!result.success) {
-      throw new ValidationError(undefined, undefined, result.error.issues);
-    }
-
+    const assistant = assistantSchema.parse(await req.json()) as Assistant;
     const organization = ctx.state.organization as string;
-    const assistant = (result.data) as Assistant;
 
     assistant.id = `${ASSISTANT_PREFIX}-${crypto.randomUUID()}`;
     assistant.created_at = Date.now();

@@ -7,6 +7,7 @@ import {
   UnauthorizedError,
   ValidationError,
 } from "$/models/errors.ts";
+import { ZodError } from "$zod/mod.ts";
 
 export interface State {
   organization: string;
@@ -16,10 +17,11 @@ export function renderJSON(data?: object | object[], status?: number) {
   let body;
   if (!data) {
     body = data;
-  } else if (Array.isArray(data)) {
-    body = JSON.stringify(data);
+    // } else if (Array.isArray(data)) {
+    //   body = JSON.stringify(data);
   } else {
-    body = JSON.stringify(data, Object.keys(data).sort());
+    body = JSON.stringify(data);
+    // body = JSON.stringify(data, Object.keys(data).sort());
   }
   return new Response(body, {
     status: status || 200,
@@ -42,6 +44,11 @@ export function handler(_req: Request, ctx: FreshContext) {
       case NotFoundError:
         problemDetail.status = 404;
         problemDetail.instance = (error as NotFoundError).instance;
+        break;
+      case ZodError:
+        problemDetail.status = 422;
+        problemDetail.title = "Unprocessable Content";
+        problemDetail.errors = (error as ZodError).issues;
         break;
       case ValidationError:
         problemDetail.status = 422;
