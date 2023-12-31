@@ -5,11 +5,7 @@ import {
   assistantSchema,
   genPrimaryKey,
 } from "$/models/assistant.ts";
-import {
-  DbCommitError,
-  NotFoundError,
-  ValidationError,
-} from "$/models/errors.ts";
+import { DbCommitError, NotFoundError } from "$/models/errors.ts";
 import { renderJSON } from "$/routes/_middleware.ts";
 
 // deno-lint-ignore ban-ts-comment
@@ -37,14 +33,11 @@ export const handler: Handlers<Assistant | null> = {
   async PATCH(req: Request, ctx: FreshContext) {
     const oldAssistant = await getAssistant(ctx);
 
-    const result = assistantSchema.partial().safeParse(await req.json());
-    if (!result.success) {
-      throw new ValidationError(undefined, undefined, result.error.issues);
-    }
+    const result = assistantSchema.partial().parse(await req.json());
 
     const assistant = {
       ...oldAssistant.value,
-      ...result.data,
+      ...result,
     } as Assistant;
 
     assistant.updated_at = Date.now();

@@ -15,18 +15,16 @@ import {
   LIST,
   List,
   listParamsSchema,
+  parseSearchParams,
 } from "$/models/list.ts";
 
 // deno-lint-ignore ban-ts-comment
 // @ts-ignore
 const kv = await Deno.openKv();
 
-const parseParams = (req: Request) =>
-  Object.fromEntries((new URL(req.url)).searchParams);
-
 export const handler: Handlers<Assistant | null> = {
   async GET(req: Request, ctx: FreshContext) {
-    const listParams = listParamsSchema.parse(parseParams(req));
+    const listParams = listParamsSchema.parse(parseSearchParams(req));
     const organization = ctx.state.organization as string;
 
     const iter = await kv.list<Assistant>(
