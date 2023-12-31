@@ -2,7 +2,7 @@ import { z } from "$zod/mod.ts";
 import { metadata, metaSchema } from "$/models/_schema.ts";
 import { THREAD } from "$/models/thread.ts";
 
-export const MESSAGE = "message";
+export const MESSAGE = "thread.message";
 export const MESSAGE_PREFIX = "msg";
 
 /**

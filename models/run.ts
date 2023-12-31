@@ -2,8 +2,13 @@ import { z } from "$zod/mod.ts";
 import { metadata, metaSchema } from "$/models/_schema.ts";
 import { THREAD } from "$/models/thread.ts";
 
-export const RUN = "run";
+export const RUN = "thread.run";
 export const RUN_PREFIX = "run";
+
+export const errorType = z.object({
+  code: z.enum(["server_error", "rate_limit_exceeded"]),
+  message: z.string(),
+}).optional();
 
 /**
  * The request body, which creating a run.
@@ -46,7 +51,8 @@ const runType = runSchema.omit({
       "expired",
     ], {
       description: "The status of the run.",
-    }).optional(),
+    }),
+    last_error: errorType,
   }),
 ).merge(metaSchema.omit({
   updated_at: true,
