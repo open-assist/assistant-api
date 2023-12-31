@@ -45,3 +45,12 @@ export const genListSelector = (
   }
   return selector;
 };
+
+/**
+ * Parse the search parameters for request's url.
+ *
+ * @param req The http request.
+ * @returns object Search parameters.
+ */
+export const parseSearchParams = (req: Request) =>
+  Object.fromEntries((new URL(req.url)).searchParams);
