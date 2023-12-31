@@ -14,6 +14,8 @@ import * as $v1_assistants_index from "./routes/v1/assistants/index.ts";
 import * as $v1_threads_thread_id_ from "./routes/v1/threads/[thread_id].ts";
 import * as $v1_threads_thread_id_messages_message_id_ from "./routes/v1/threads/[thread_id]/messages/[message_id].ts";
 import * as $v1_threads_thread_id_messages_index from "./routes/v1/threads/[thread_id]/messages/index.ts";
+import * as $v1_threads_thread_id_runs_run_id_ from "./routes/v1/threads/[thread_id]/runs/[run_id].ts";
+import * as $v1_threads_thread_id_runs_index from "./routes/v1/threads/[thread_id]/runs/index.ts";
 import * as $v1_threads_index from "./routes/v1/threads/index.ts";
 
 import { type Manifest } from "$fresh/server.ts";
@@ -34,6 +36,10 @@ const manifest = {
       $v1_threads_thread_id_messages_message_id_,
     "./routes/v1/threads/[thread_id]/messages/index.ts":
       $v1_threads_thread_id_messages_index,
+    "./routes/v1/threads/[thread_id]/runs/[run_id].ts":
+      $v1_threads_thread_id_runs_run_id_,
+    "./routes/v1/threads/[thread_id]/runs/index.ts":
+      $v1_threads_thread_id_runs_index,
     "./routes/v1/threads/index.ts": $v1_threads_index,
   },
   islands: {},

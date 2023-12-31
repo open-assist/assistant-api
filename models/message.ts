@@ -45,7 +45,7 @@ const messageType = messageSchema.omit({
         "If applicable, the ID of the run associated with the authoring of this message.",
     }).optional(),
   }),
-).merge(metaSchema);
+).merge(metaSchema.omit({ updated_at: true }));
 
 /**
  * Represents a message within a thread.

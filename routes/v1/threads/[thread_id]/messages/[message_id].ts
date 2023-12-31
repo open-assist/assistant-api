@@ -42,7 +42,6 @@ export const handler: Handlers<Message | null> = {
       ...result,
     } as Message;
 
-    message.updated_at = Date.now();
     const { ok } = await kv.atomic().check(oldMessage)
       .set(oldMessage.key, message).commit();
     if (!ok) throw new DbCommitError();
