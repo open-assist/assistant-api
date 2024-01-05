@@ -1,52 +1,35 @@
 import { FreshContext, Handlers } from "$fresh/server.ts";
 import {
   genPrimaryKey,
-  MESSAGE,
   type Message,
+  MESSAGE_OBJECT,
   messageSchema,
 } from "$/models/message.ts";
-import { DbCommitError, NotFoundError } from "$/models/errors.ts";
 import { renderJSON } from "$/routes/_middleware.ts";
-
-// deno-lint-ignore ban-ts-comment
-// @ts-ignore
-const kv = await Deno.openKv();
+import { getByPrimaryKey, updateObject } from "$/models/_db.ts";
 
 async function getMessage(ctx: FreshContext) {
   const threadId = ctx.params.thread_id;
   const messageId = ctx.params.message_id;
 
-  const key = genPrimaryKey(threadId, messageId);
-  const result = await kv.get<Message>(key);
-  if (!result.value) throw new NotFoundError();
-
-  return result;
+  return await getByPrimaryKey<Message>(genPrimaryKey(threadId, messageId));
 }
 
 export const handler: Handlers<Message | null> = {
   async GET(_req, ctx: FreshContext) {
     const message = (await getMessage(ctx)).value as Message;
-    message.object = MESSAGE;
+    message.object = MESSAGE_OBJECT;
     return renderJSON(message);
   },
 
   async PATCH(req: Request, ctx: FreshContext) {
     const oldMessage = await getMessage(ctx);
 
-    const result = messageSchema.pick({ metadata: true }).parse(
+    const fields = messageSchema.pick({ metadata: true }).parse(
       await req.json(),
     );
-
-    const message = {
-      ...oldMessage.value,
-      ...result,
-    } as Message;
-
-    const { ok } = await kv.atomic().check(oldMessage)
-      .set(oldMessage.key, message).commit();
-    if (!ok) throw new DbCommitError();
-
-    message.object = MESSAGE;
+    const message = await updateObject<Message>(oldMessage, fields);
+    message.object = MESSAGE_OBJECT;
     return renderJSON(message);
   },
 };

@@ -2,13 +2,21 @@ import { z } from "$zod/mod.ts";
 import { metadata, metaSchema } from "$/models/_schema.ts";
 import { THREAD } from "$/models/thread.ts";
 
-export const RUN = "thread.run";
+export const RUN = "run";
+export const RUN_OBJECT = "thread.run";
 export const RUN_PREFIX = "run";
 
 export const errorType = z.object({
   code: z.enum(["server_error", "rate_limit_exceeded"]),
   message: z.string(),
 }).optional();
+
+export const statusTimesSchema = z.object({
+  expired_at: z.number().optional(),
+  cancelled_at: z.number().optional(),
+  failed_at: z.number().optional(),
+  completed_at: z.number().optional(),
+});
 
 /**
  * The request body, which creating a run.
@@ -36,7 +44,7 @@ const runType = runSchema.omit({
   additional_instructions: true,
 }).merge(
   z.object({
-    object: z.enum([RUN]),
+    object: z.enum([RUN_OBJECT]),
     thread_id: z.string({
       description: "The thread ID that this message belongs to.",
     }),
@@ -53,10 +61,12 @@ const runType = runSchema.omit({
       description: "The status of the run.",
     }),
     last_error: errorType,
+    started_at: z.number().optional(),
   }),
-).merge(metaSchema.omit({
-  updated_at: true,
-}));
+).merge(statusTimesSchema)
+  .merge(metaSchema.omit({
+    updated_at: true,
+  }));
 
 /**
  * Represents an execution run on a thread.
@@ -71,3 +81,5 @@ export const genPrimaryKey = (
 export const genPrimaryIndexKey = (
   threadId: string,
 ) => [THREAD, threadId, RUN];
+
+export const genSecondaryKey = (id: string) => [RUN, id];

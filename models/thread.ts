@@ -4,6 +4,7 @@ import { ORGANIZATION } from "$/models/organization.ts";
 
 export const THREAD = "thread";
 export const THREAD_PREFIX = "thrd";
+export const THREAD_OBJECT = "thread";
 
 /**
  * The request body, which createing a thread.

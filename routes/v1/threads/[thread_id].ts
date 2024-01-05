@@ -3,58 +3,38 @@ import {
   genPrimaryKey,
   THREAD,
   type Thread,
+  THREAD_OBJECT,
   threadSchema,
 } from "$/models/thread.ts";
-import { DbCommitError, NotFoundError } from "$/models/errors.ts";
 import { renderJSON } from "$/routes/_middleware.ts";
-
-// deno-lint-ignore ban-ts-comment
-// @ts-ignore
-const kv = await Deno.openKv();
+import { deleteObject, getByPrimaryKey, updateObject } from "$/models/_db.ts";
 
 async function getThread(ctx: FreshContext) {
   const organization = ctx.state.organization as string;
   const threadId = ctx.params.thread_id;
 
-  const key = genPrimaryKey(organization, threadId);
-  const result = await kv.get<Thread>(key);
-  if (!result.value) throw new NotFoundError();
-
-  return result;
+  return await getByPrimaryKey<Thread>(genPrimaryKey(organization, threadId));
 }
 
 export const handler: Handlers<Thread | null> = {
   async GET(_req, ctx: FreshContext) {
     const thread = (await getThread(ctx)).value as Thread;
-    thread.object = THREAD;
+    thread.object = THREAD_OBJECT;
     return renderJSON(thread);
   },
 
   async PATCH(req: Request, ctx: FreshContext) {
     const oldThread = await getThread(ctx);
 
-    const result = threadSchema.parse(await req.json());
-
-    const thread = {
-      ...oldThread.value,
-      ...result,
-    } as Thread;
-
-    thread.updated_at = Date.now();
-    const { ok } = await kv.atomic().check(oldThread)
-      .set(oldThread.key, thread).commit();
-    if (!ok) throw new DbCommitError();
-
+    const fields = threadSchema.parse(await req.json());
+    const thread = await updateObject<Thread>(oldThread, fields);
     thread.object = THREAD;
     return renderJSON(thread);
   },
 
   async DELETE(_req: Request, ctx: FreshContext) {
     const oldThread = await getThread(ctx);
-
-    const { ok } = await kv.atomic().check(oldThread)
-      .delete(oldThread.key).commit();
-    if (!ok) throw new DbCommitError();
+    await deleteObject(oldThread);
 
     return renderJSON(undefined, 204);
   },

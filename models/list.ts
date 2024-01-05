@@ -10,9 +10,20 @@ export interface List<T> {
   has_more: boolean;
 }
 
+export interface ListSelector {
+  prefix?: string[];
+  start?: string[];
+  end?: string[];
+}
+
+export interface ListOptions {
+  limit?: number;
+  reverse?: boolean;
+}
+
 export const listParamsSchema = z.object({
-  limit: z.coerce.number().min(1).max(100).default(20).optional(),
-  order: z.enum(["asc", "desc"]).default("desc").optional(),
+  limit: z.coerce.number().min(1).max(100).default(20), //.optional(),
+  order: z.enum(["asc", "desc"]).default("desc"), //.optional(),
   after: z.string().optional(),
   before: z.string().optional(),
 });
@@ -27,23 +38,17 @@ export const genListOptions = (params: ListParams) => (
 );
 
 export const genListSelector = (
-  org: string,
+  parentId: string,
   params: ListParams,
-  genPrimaryKey: (org: string, id: string) => string[],
-  genPrimaryIndexKey: (org: string) => string[],
+  genPrimaryKey: (parentId: string, id: string) => string[],
+  genPrimaryIndexKey: (parentId: string) => string[],
 ) => {
   const { after, before } = params;
-  const selector: { prefix?: string[]; start?: string[]; end?: string[] } = {};
-  if (before) {
-    selector["end"] = genPrimaryKey(org, before);
-  }
-  if (after) {
-    selector["start"] = genPrimaryKey(org, after);
-  }
-  if (!before || !after) {
-    selector["prefix"] = genPrimaryIndexKey(org);
-  }
-  return selector;
+  return {
+    prefix: !(before && after) && genPrimaryIndexKey(parentId),
+    start: after && genPrimaryKey(parentId, after),
+    end: before && genPrimaryKey(parentId, before),
+  } as Deno.KvListSelector;
 };
 
 /**

@@ -3,6 +3,7 @@ import { ORGANIZATION } from "$/models/organization.ts";
 import { metadata, metaSchema } from "$/models/_schema.ts";
 
 export const ASSISTANT = "assistant";
+export const ASSISTANT_OBJECT = "assistant";
 export const ASSISTANT_PREFIX = "asst";
 
 /**
@@ -36,3 +37,7 @@ export const genPrimaryKey = (
 export const genPrimaryIndexKey = (
   orgId: string,
 ) => [ORGANIZATION, orgId, ASSISTANT];
+
+export const genSecondaryKey = (
+  id: string,
+) => [ASSISTANT, id];

@@ -2,46 +2,31 @@ import { FreshContext, Handlers } from "$fresh/server.ts";
 import {
   genPrimaryIndexKey,
   genPrimaryKey,
-  THREAD,
   Thread,
+  THREAD_OBJECT,
   THREAD_PREFIX,
   threadSchema,
 } from "$/models/thread.ts";
 import { renderJSON } from "$/routes/_middleware.ts";
-import { DbCommitError } from "$/models/errors.ts";
-import {
-  genListOptions,
-  genListSelector,
-  LIST,
-  List,
-  listParamsSchema,
-  parseSearchParams,
-} from "$/models/list.ts";
-
-// deno-lint-ignore ban-ts-comment
-// @ts-ignore
-const kv = await Deno.openKv();
+import { LIST, List, listParamsSchema } from "$/models/list.ts";
+import { createObject, listObjects } from "$/models/_db.ts";
 
 export const handler: Handlers<Thread | null> = {
-  async GET(req: Request, ctx: FreshContext) {
-    const listParams = listParamsSchema.parse(parseSearchParams(req));
+  async GET(_req: Request, ctx: FreshContext) {
+    const listParams = listParamsSchema.parse(
+      Object.fromEntries(ctx.url.searchParams),
+    );
     const organization = ctx.state.organization as string;
 
-    const iter = await kv.list<Thread>(
-      genListSelector(
-        organization,
-        listParams,
-        genPrimaryKey,
-        genPrimaryIndexKey,
-      ),
-      genListOptions(listParams),
+    const threads = await listObjects<Thread>(
+      organization,
+      listParams,
+      genPrimaryKey,
+      genPrimaryIndexKey,
+      {
+        object: THREAD_OBJECT,
+      },
     );
-    const threads = [];
-    for await (const res of iter) {
-      const value = res.value as Thread;
-      value.object = THREAD;
-      threads.push(value);
-    }
 
     const list: List<Thread> = {
       object: LIST,
@@ -60,13 +45,12 @@ export const handler: Handlers<Thread | null> = {
     thread.id = `${THREAD_PREFIX}-${crypto.randomUUID()}`;
     thread.created_at = Date.now();
 
-    const key = genPrimaryKey(organization, thread.id);
-    const { ok } = await kv.atomic().check({ key: key, versionstamp: null })
-      .set(key, thread)
-      .commit();
-    if (!ok) throw new DbCommitError();
+    await createObject(
+      genPrimaryKey(organization, thread.id),
+      thread,
+    );
 
-    thread.object = THREAD;
+    thread.object = THREAD_OBJECT;
     return renderJSON(thread, 201);
   },
 };

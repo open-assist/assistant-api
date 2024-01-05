@@ -15,4 +15,7 @@ export const metaSchema = z.object({
   }),
   created_at: z.number(),
   updated_at: z.number(),
+  versionstamp: z.string(),
 });
+
+export type Meta = z.infer<typeof metaSchema>;

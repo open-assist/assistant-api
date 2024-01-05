@@ -2,46 +2,33 @@ import { FreshContext, Handlers } from "$fresh/server.ts";
 import {
   genPrimaryIndexKey,
   genPrimaryKey,
-  MESSAGE,
   Message,
+  MESSAGE_OBJECT,
   MESSAGE_PREFIX,
   messageSchema,
 } from "$/models/message.ts";
 import { renderJSON } from "$/routes/_middleware.ts";
-import { DbCommitError } from "$/models/errors.ts";
 import {
-  genListOptions,
-  genListSelector,
   LIST,
   List,
   listParamsSchema,
   parseSearchParams,
 } from "$/models/list.ts";
-
-// deno-lint-ignore ban-ts-comment
-// @ts-ignore
-const kv = await Deno.openKv();
+import { createObject, listObjects } from "$/models/_db.ts";
 
 export const handler: Handlers<Message | null> = {
   async GET(req: Request, ctx: FreshContext) {
     const listParams = listParamsSchema.parse(parseSearchParams(req));
     const threadId = ctx.params.thread_id as string;
-
-    const iter = await kv.list<Message>(
-      genListSelector(
-        threadId,
-        listParams,
-        genPrimaryKey,
-        genPrimaryIndexKey,
-      ),
-      genListOptions(listParams),
+    const messages = await listObjects<Message>(
+      threadId,
+      listParams,
+      genPrimaryKey,
+      genPrimaryIndexKey,
+      {
+        object: MESSAGE_OBJECT,
+      },
     );
-    const messages = [];
-    for await (const res of iter) {
-      const value = res.value as Message;
-      value.object = MESSAGE;
-      messages.push(value);
-    }
 
     const list: List<Message> = {
       object: LIST,
@@ -61,6 +48,9 @@ export const handler: Handlers<Message | null> = {
 
     const message = {
       ...messageJson,
+      id: `${MESSAGE_PREFIX}-${crypto.randomUUID()}`,
+      created_at: Date.now(),
+      thread_id: threadId,
       content: [
         {
           type: "text",
@@ -70,16 +60,13 @@ export const handler: Handlers<Message | null> = {
         },
       ],
     } as Message;
-    message.id = `${MESSAGE_PREFIX}-${crypto.randomUUID()}`;
-    message.created_at = Date.now();
 
-    const key = genPrimaryKey(threadId, message.id);
-    const { ok } = await kv.atomic().check({ key: key, versionstamp: null })
-      .set(key, message)
-      .commit();
-    if (!ok) throw new DbCommitError();
+    await createObject(
+      genPrimaryKey(threadId, message.id),
+      message,
+    );
 
-    message.object = MESSAGE;
+    message.object = MESSAGE_OBJECT;
     return renderJSON(message, 201);
   },
 };

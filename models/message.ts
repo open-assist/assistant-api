@@ -1,8 +1,10 @@
 import { z } from "$zod/mod.ts";
 import { metadata, metaSchema } from "$/models/_schema.ts";
 import { THREAD } from "$/models/thread.ts";
+import { createObject, kv } from "$/models/_db.ts";
 
-export const MESSAGE = "thread.message";
+export const MESSAGE = "message";
+export const MESSAGE_OBJECT = "thread.message";
 export const MESSAGE_PREFIX = "msg";
 
 /**
@@ -32,7 +34,7 @@ const messageType = messageSchema.omit({
 }).merge(
   z.object({
     content: z.array(textContentType),
-    object: z.enum([MESSAGE]),
+    object: z.enum([MESSAGE_OBJECT]),
     thread_id: z.string({
       description: "The thread ID that this message belongs to.",
     }),
@@ -60,3 +62,38 @@ export const genPrimaryKey = (
 export const genPrimaryIndexKey = (
   threadId: string,
 ) => [THREAD, threadId, MESSAGE];
+
+export const genSecodndaryKey = (
+  id: string,
+) => [MESSAGE, id];
+
+/**
+ * Get the messages by thread id. If not exists, return empty array.
+ *
+ * @param threadId The thread which messages belongs to.
+ * @returns The messages of thread
+ */
+export const getMessagesByThread = async (threadId: string) => {
+  const indexKey = genPrimaryIndexKey(threadId);
+  const iter = kv.list<Message>({ prefix: indexKey }, { reverse: true });
+  const messages = [];
+  for await (const result of iter) {
+    messages.push(result.value);
+  }
+  return messages;
+};
+
+export const createMessage = async (message: Message) => {
+  const newMessage = {
+    ...message,
+    id: `${MESSAGE_PREFIX}-${crypto.randomUUID()}`,
+    created_at: Date.now(),
+  } as Message;
+
+  await createObject(
+    genPrimaryKey(newMessage.thread_id, newMessage.id),
+    message,
+  );
+
+  return newMessage;
+};
