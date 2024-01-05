@@ -9,17 +9,14 @@ import {
   runSchema,
 } from "$/models/run.ts";
 import { renderJSON } from "$/routes/_middleware.ts";
-import {
-  LIST,
-  List,
-  listParamsSchema,
-  parseSearchParams,
-} from "$/models/list.ts";
-import { createObject, listObjects } from "$/models/_db.ts";
+import { LIST, List, listParamsSchema } from "$/models/list.ts";
+import { createObject, kv, listObjects } from "$/models/_db.ts";
 
 export const handler: Handlers<Run | null> = {
-  async GET(req: Request, ctx: FreshContext) {
-    const listParams = listParamsSchema.parse(parseSearchParams(req));
+  async GET(_req: Request, ctx: FreshContext) {
+    const listParams = listParamsSchema.parse(
+      Object.fromEntries(ctx.url.searchParams),
+    );
     const threadId = ctx.params.thread_id as string;
 
     const runs = await listObjects<Run>(
@@ -66,9 +63,9 @@ export const handler: Handlers<Run | null> = {
       genSecondaryKey(run.id),
     );
 
-    // await kv.enqueue({
-    //   runId: run.id,
-    // });
+    await kv.enqueue({
+      runId: run.id,
+    });
 
     run.object = RUN_OBJECT;
     return renderJSON(run, 201);

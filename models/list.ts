@@ -10,20 +10,9 @@ export interface List<T> {
   has_more: boolean;
 }
 
-export interface ListSelector {
-  prefix?: string[];
-  start?: string[];
-  end?: string[];
-}
-
-export interface ListOptions {
-  limit?: number;
-  reverse?: boolean;
-}
-
 export const listParamsSchema = z.object({
-  limit: z.coerce.number().min(1).max(100).default(20), //.optional(),
-  order: z.enum(["asc", "desc"]).default("desc"), //.optional(),
+  limit: z.coerce.number().min(1).max(100).default(20),
+  order: z.enum(["asc", "desc"]).default("desc"),
   after: z.string().optional(),
   before: z.string().optional(),
 });
@@ -50,12 +39,3 @@ export const genListSelector = (
     end: before && genPrimaryKey(parentId, before),
   } as Deno.KvListSelector;
 };
-
-/**
- * Parse the search parameters for request's url.
- *
- * @param req The http request.
- * @returns object Search parameters.
- */
-export const parseSearchParams = (req: Request) =>
-  Object.fromEntries((new URL(req.url)).searchParams);

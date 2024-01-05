@@ -1,24 +1,21 @@
 import { FreshContext, Handlers } from "$fresh/server.ts";
 import {
+  createMessage,
   genPrimaryIndexKey,
   genPrimaryKey,
   Message,
   MESSAGE_OBJECT,
-  MESSAGE_PREFIX,
   messageSchema,
 } from "$/models/message.ts";
 import { renderJSON } from "$/routes/_middleware.ts";
-import {
-  LIST,
-  List,
-  listParamsSchema,
-  parseSearchParams,
-} from "$/models/list.ts";
-import { createObject, listObjects } from "$/models/_db.ts";
+import { LIST, List, listParamsSchema } from "$/models/list.ts";
+import { listObjects } from "$/models/_db.ts";
 
 export const handler: Handlers<Message | null> = {
-  async GET(req: Request, ctx: FreshContext) {
-    const listParams = listParamsSchema.parse(parseSearchParams(req));
+  async GET(_req: Request, ctx: FreshContext) {
+    const listParams = listParamsSchema.parse(
+      Object.fromEntries(ctx.url.searchParams),
+    );
     const threadId = ctx.params.thread_id as string;
     const messages = await listObjects<Message>(
       threadId,
@@ -43,28 +40,21 @@ export const handler: Handlers<Message | null> = {
   },
 
   async POST(req: Request, ctx: FreshContext) {
-    const messageJson = messageSchema.parse(await req.json());
+    const fields = messageSchema.parse(await req.json());
     const threadId = ctx.params.thread_id as string;
 
-    const message = {
-      ...messageJson,
-      id: `${MESSAGE_PREFIX}-${crypto.randomUUID()}`,
-      created_at: Date.now(),
+    const message = await createMessage({
+      ...fields,
       thread_id: threadId,
       content: [
         {
           type: "text",
           text: {
-            value: messageJson.content,
+            value: fields.content,
           },
         },
       ],
-    } as Message;
-
-    await createObject(
-      genPrimaryKey(threadId, message.id),
-      message,
-    );
+    });
 
     message.object = MESSAGE_OBJECT;
     return renderJSON(message, 201);

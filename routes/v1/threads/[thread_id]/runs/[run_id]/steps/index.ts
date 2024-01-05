@@ -1,18 +1,15 @@
 import { FreshContext, Handlers } from "$fresh/server.ts";
-import {
-  LIST,
-  List,
-  listParamsSchema,
-  parseSearchParams,
-} from "$/models/list.ts";
+import { LIST, List, listParamsSchema } from "$/models/list.ts";
 import { Step, STEP_OBJECT } from "$/models/step.ts";
-import { genPrimaryIndexKey, genPrimaryKey } from "$/models/thread.ts";
+import { genPrimaryIndexKey, genPrimaryKey } from "$/models/step.ts";
 import { renderJSON } from "$/routes/_middleware.ts";
 import { listObjects } from "$/models/_db.ts";
 
 export const handler: Handlers<Step | null> = {
-  async GET(req: Request, ctx: FreshContext) {
-    const listParams = listParamsSchema.parse(parseSearchParams(req));
+  async GET(_req: Request, ctx: FreshContext) {
+    const listParams = listParamsSchema.parse(
+      Object.fromEntries(ctx.url.searchParams),
+    );
     const runId = ctx.params.run_id as string;
 
     const step = await listObjects<Step>(

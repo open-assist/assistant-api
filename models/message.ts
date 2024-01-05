@@ -75,24 +75,24 @@ export const genSecodndaryKey = (
  */
 export const getMessagesByThread = async (threadId: string) => {
   const indexKey = genPrimaryIndexKey(threadId);
-  const iter = kv.list<Message>({ prefix: indexKey }, { reverse: true });
+  const iter = kv.list<Message>({ prefix: indexKey });
   const messages = [];
   for await (const result of iter) {
     messages.push(result.value);
   }
-  return messages;
+  return messages.sort((a, b) => a.created_at - b.created_at);
 };
 
-export const createMessage = async (message: Message) => {
+export const createMessage = async (fields: Partial<Message>) => {
   const newMessage = {
-    ...message,
+    ...fields,
     id: `${MESSAGE_PREFIX}-${crypto.randomUUID()}`,
     created_at: Date.now(),
   } as Message;
 
   await createObject(
     genPrimaryKey(newMessage.thread_id, newMessage.id),
-    message,
+    newMessage,
   );
 
   return newMessage;

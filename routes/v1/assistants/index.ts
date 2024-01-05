@@ -7,18 +7,16 @@ import {
   assistantSchema,
   genPrimaryIndexKey,
   genPrimaryKey,
+  genSecondaryKey,
 } from "$/models/assistant.ts";
-import {
-  LIST,
-  List,
-  listParamsSchema,
-  parseSearchParams,
-} from "$/models/list.ts";
+import { LIST, List, listParamsSchema } from "$/models/list.ts";
 import { createObject, listObjects } from "$/models/_db.ts";
 
 export const handler: Handlers<Assistant | null> = {
-  async GET(req: Request, ctx: FreshContext) {
-    const listParams = listParamsSchema.parse(parseSearchParams(req));
+  async GET(_req: Request, ctx: FreshContext) {
+    const listParams = listParamsSchema.parse(
+      Object.fromEntries(ctx.url.searchParams),
+    );
     const organization = ctx.state.organization as string;
 
     const runs = await listObjects<Assistant>(
@@ -51,6 +49,7 @@ export const handler: Handlers<Assistant | null> = {
     await createObject(
       genPrimaryKey(organization, assistant.id),
       assistant,
+      genSecondaryKey(assistant.id),
     );
 
     assistant.object = ASSISTANT_OBJECT;

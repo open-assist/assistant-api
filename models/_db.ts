@@ -4,16 +4,11 @@ import { ListParams } from "$/models/list.ts";
 import { Meta } from "$/models/_schema.ts";
 
 export const kv = await Deno.openKv();
+
 // Gracefully shutdown after tests
 addEventListener("beforeunload", () => {
   kv.close();
 });
-
-export interface KvGetResult {
-  key: string[];
-  value: object;
-  versionstamp: string | null;
-}
 
 /**
  * Set the value for the given key in the database.
@@ -45,6 +40,16 @@ export const createObject = async (
   return result;
 };
 
+/**
+ * List all object by parameters.
+ *
+ * @param parentId The id of object's parent.
+ * @param params The parameters for list objects api.
+ * @param genPrimaryKey The function to generate primary key, when before or after is present.
+ * @param genPrimaryIndexKey The function to generate primary index key.
+ * @param fields Append fields to all objects.
+ * @returns All objects.
+ */
 export const listObjects = async <T>(
   parentId: string,
   params: ListParams,

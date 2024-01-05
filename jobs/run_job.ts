@@ -43,12 +43,9 @@ export class RunJob {
       } as Step);
 
       // request llm
-      const result = await getBySecondaryKey(run.assistant_id, genAssistantKey);
-      if (!result.value) {
-        console.warn("[-] assistant is not found: ", result.key);
-        return;
-      }
-      const assistant = result.value as Assistant;
+      const assistant =
+        (await getBySecondaryKey<Assistant>(run.assistant_id, genAssistantKey))
+          .value as Assistant;
       const messages: Message[] = await getMessagesByThread(run.thread_id);
       console.log("[+] messages:", messages);
 
@@ -93,6 +90,7 @@ export class RunJob {
       } as Run);
     } catch (error) {
       console.log("[*] run id: ", runId, ", error: ", error);
+      return;
     }
   }
 }
