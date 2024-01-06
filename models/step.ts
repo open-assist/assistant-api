@@ -59,6 +59,13 @@ export const createStep = async (step: Step) => {
   return newStep;
 };
 
+export const getByKey = async (key: Deno.KvKey) => {
+  const kvEntry = await kv.get<Step>(key);
+  if (!kvEntry.value) throw new NotFoundError();
+
+  return kvEntry;
+};
+
 export const getByPrimaryKey = async (runId: string, stepId: string) => {
   const key = genPrimaryKey(runId, stepId);
   const result = await kv.get<Step>(key);
@@ -67,9 +74,9 @@ export const getByPrimaryKey = async (runId: string, stepId: string) => {
   return result;
 };
 
-export const getByRunId = async (runId: string) => {
+export const listByRunId = async (runId: string) => {
   const indexKey = genPrimaryIndexKey(runId);
-  const iter = kv.list<Step>({ prefix: indexKey }, { limit: 1, reverse: true });
+  const iter = kv.list<Step>({ prefix: indexKey });
   return await Array.fromAsync(iter);
 };
 

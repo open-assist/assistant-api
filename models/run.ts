@@ -4,10 +4,13 @@ import { THREAD } from "$/models/thread.ts";
 import { FreshContext } from "$fresh/server.ts";
 import { getByPrimaryKey, kv } from "$/models/_db.ts";
 import { DbCommitError } from "$/models/errors.ts";
+import { RunJobMessage } from "$/jobs/run_job.ts";
 
 export const RUN = "run";
 export const RUN_OBJECT = "thread.run";
 export const RUN_PREFIX = "run";
+// 10 minutes
+export const RUN_EXPIRED_DURATION = 10 * 60 * 1000;
 
 export const errorType = z.object({
   code: z.enum(["server_error", "rate_limit_exceeded"]),
@@ -64,8 +67,9 @@ const runType = runSchema.omit({
       description: "The status of the run.",
     }),
     started_at: z.number().optional(),
+    expires_at: z.number(),
   }),
-).merge(statusFieldsType.omit({ status: true }))
+).merge(statusFieldsType.omit({ status: true, expired_at: true }))
   .merge(metaSchema.omit({
     updated_at: true,
   }));
@@ -91,6 +95,33 @@ export async function getRun(ctx: FreshContext) {
   const runId = ctx.params.run_id;
 
   return await getByPrimaryKey<Run>(genPrimaryKey(threadId, runId));
+}
+
+export async function createRun(fields: Run) {
+  const tm = Date.now();
+  const run = {
+    ...fields,
+    id: `${RUN_PREFIX}-${crypto.randomUUID()}`,
+    created_at: tm,
+    expires_at: tm + RUN_EXPIRED_DURATION,
+    status: "queued",
+  } as Run;
+  const key = genPrimaryKey(run.thread_id, run.id);
+  const secondaryKey = genSecondaryKey(run.id);
+
+  const { ok } = await kv.atomic()
+    .check({ key, versionstamp: null })
+    .check({ key: secondaryKey, versionstamp: null })
+    .enqueue({ action: "execute", runId: run.id } as RunJobMessage)
+    .enqueue({ action: "expire", runId: run.id } as RunJobMessage, {
+      delay: RUN_EXPIRED_DURATION,
+    })
+    .set(key, run)
+    .set(secondaryKey, key)
+    .commit();
+  if (!ok) throw new DbCommitError();
+
+  return run;
 }
 
 export async function cancelRun<T>(kvEntry: Deno.KvEntryMaybe<T>) {

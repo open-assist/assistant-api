@@ -1,16 +1,15 @@
 import { FreshContext, Handlers } from "$fresh/server.ts";
 import {
+  createRun,
   genPrimaryIndexKey,
   genPrimaryKey,
-  genSecondaryKey,
   Run,
   RUN_OBJECT,
-  RUN_PREFIX,
   runSchema,
 } from "$/models/run.ts";
 import { renderJSON } from "$/routes/_middleware.ts";
 import { LIST, List, listParamsSchema } from "$/models/list.ts";
-import { createObject, kv, listObjects } from "$/models/_db.ts";
+import { listObjects } from "$/models/_db.ts";
 
 export const handler: Handlers<Run | null> = {
   async GET(_req: Request, ctx: FreshContext) {
@@ -48,24 +47,11 @@ export const handler: Handlers<Run | null> = {
         `${runJson.instructions}${runJson.additional_instructions}`;
     }
 
-    const run = {
+    const run = await createRun({
       ...runJson,
-      id: `${RUN_PREFIX}-${crypto.randomUUID()}`,
-      created_at: Date.now(),
       instructions,
       thread_id: threadId,
-      status: "queued",
-    } as Run;
-
-    await createObject(
-      genPrimaryKey(threadId, run.id),
-      run,
-      genSecondaryKey(run.id),
-    );
-
-    await kv.enqueue({
-      runId: run.id,
-    });
+    } as Run);
 
     run.object = RUN_OBJECT;
     return renderJSON(run, 201);

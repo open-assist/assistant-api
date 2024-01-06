@@ -1,28 +1,28 @@
-import {
-  getBySecondaryKey,
-  kv,
-  updateObject,
-  updateObjectByKey,
-} from "$/models/_db.ts";
+import { getBySecondaryKey, kv } from "$/models/_db.ts";
+import { StatusFields } from "$/models/_schema.ts";
 import { genSecondaryKey as genRunKey, Run } from "$/models/run.ts";
 import {
   Assistant,
   genSecondaryKey as genAssistantKey,
 } from "$/models/assistant.ts";
 import {
-  createMessage,
+  genPrimaryKey as genMessageKey,
   getMessagesByThread,
   Message,
+  MESSAGE_PREFIX,
 } from "$/models/message.ts";
 import {
-  createStep,
-  getByRunId,
+  genPrimaryKey as genStepKey,
+  listByRunId,
   Step,
-  updateStepByPrimaryKey,
+  STEP_PREFIX,
 } from "$/models/step.ts";
 import { Google } from "$/helpers/google.ts";
-import { InternalServerError, TooManyRequests } from "$/models/errors.ts";
-import { StatusFields } from "$/models/_schema.ts";
+import {
+  DbCommitError,
+  InternalServerError,
+  TooManyRequests,
+} from "$/models/errors.ts";
 
 export interface RunJobMessage {
   action: "execute" | "cancel" | "expire";
@@ -35,6 +35,11 @@ export function isRunJobMessage(message: unknown) {
 }
 
 export class RunJob {
+  /**
+   * Perform the run job.
+   *
+   * @param message The rub job message.
+   */
   public static async perform(message: RunJobMessage) {
     const { action, runId } = message;
     switch (action) {
@@ -45,35 +50,45 @@ export class RunJob {
         await this.cancel(runId);
         break;
       case "expire":
+        await this.expire(runId);
+        break;
     }
   }
 
-  /**
-   * execute
-   */
   private static async execute(runId: string) {
     // judge run status
-    const oldRun = await getBySecondaryKey<Run>(runId, genRunKey);
-    const run = oldRun.value as Run;
+    const kvEntry = await getBySecondaryKey<Run>(runId, genRunKey);
+    const run = kvEntry.value as Run;
     if (run.status !== "queued") {
       return;
     }
 
-    // run status: queued -> in_progress
-    await updateObject<Run>(oldRun, {
-      status: "in_progress",
-      started_at: Date.now(),
-    } as Run);
-
     // create step
-    const step = await createStep({
+    const step = {
+      id: `${STEP_PREFIX}-${crypto.randomUUID()}`,
+      created_at: Date.now(),
       assistant_id: run.assistant_id,
       thread_id: run.thread_id,
       run_id: run.id,
       type: "message_creation",
       status: "in_progress",
-    } as Step);
+    } as Step;
+    const stepKey = genStepKey(runId, step.id);
 
+    // run status: queued -> in_progress
+    const { ok } = await kv.atomic()
+      .check(kvEntry)
+      .check({ key: stepKey, versionstamp: null })
+      .set(kvEntry.key, {
+        ...run,
+        status: "in_progress",
+        started_at: Date.now(),
+      } as Run)
+      .set(stepKey, step)
+      .commit();
+    if (!ok) throw new DbCommitError();
+
+    let reply;
     try {
       // request llm
       const assistant =
@@ -81,48 +96,12 @@ export class RunJob {
           .value as Assistant;
       const messages: Message[] = await getMessagesByThread(run.thread_id);
 
-      const reply = await Google.chat(
+      reply = await Google.chat(
         run.model || assistant.model,
         messages,
         run.instructions || assistant.instructions,
       );
-
-      // create message
-      const message = await createMessage({
-        thread_id: run.thread_id,
-        assistant_id: run.assistant_id,
-        run_id: run.id,
-        role: "assistant",
-        content: [
-          {
-            type: "text",
-            text: {
-              value: reply,
-            },
-          },
-        ],
-      } as Message);
-
-      // updat step
-      await updateStepByPrimaryKey(runId, step.id, {
-        status: "completed",
-        completed_at: Date.now(),
-        step_details: {
-          type: "message_creation",
-          message_creation: {
-            message_id: message.id,
-          },
-        },
-      } as Step);
-
-      // run status: in_progress -> completed
-      await updateObjectByKey<Run>(oldRun.key, {
-        status: "completed",
-        completed_at: Date.now(),
-      } as Run);
     } catch (error) {
-      console.log("[-] run id:", runId, ",", error);
-
       const statusFields = {
         status: "failed",
         failed_at: Date.now(),
@@ -139,12 +118,55 @@ export class RunJob {
           message: error.message,
         };
       }
-
       // status: in_progress -> failed
-      await updateStepByPrimaryKey(runId, step.id, statusFields);
-      await updateObjectByKey<Run>(oldRun.key, statusFields);
+      await kv.atomic()
+        .set(stepKey, { ...step, ...statusFields })
+        .set(kvEntry.key, { ...run, ...statusFields })
+        .commit();
       return;
     }
+
+    // create message
+    const message = {
+      id: `${MESSAGE_PREFIX}-${crypto.randomUUID()}`,
+      created_at: Date.now(),
+      thread_id: run.thread_id,
+      assistant_id: run.assistant_id,
+      run_id: run.id,
+      role: "assistant",
+      content: [
+        {
+          type: "text",
+          text: {
+            value: reply,
+          },
+        },
+      ],
+    } as Message;
+    const messageKey = genMessageKey(run.thread_id, message.id);
+
+    // status: in_progress -> completed
+    const statusFields = {
+      status: "completed",
+      completed_at: Date.now(),
+    };
+    await kv.atomic()
+      .set(messageKey, message)
+      .set(stepKey, {
+        ...step,
+        ...statusFields,
+        step_details: {
+          type: "message_creation",
+          message_creation: {
+            message_id: message.id,
+          },
+        },
+      })
+      .set(kvEntry.key, {
+        ...run,
+        ...statusFields,
+      })
+      .commit();
   }
 
   private static async cancel(runId: string) {
@@ -157,23 +179,52 @@ export class RunJob {
           kvEntry.key,
           { ...run, status: "cancelled", cancelled_at: Date.now() } as Run,
         );
-      const stepEntrys = await getByRunId(run.id);
-      if (
-        stepEntrys.length === 1 && stepEntrys[0].value.status === "in_progress"
-      ) {
-        const stepEntry = stepEntrys[0];
-        atomicOp.set(
-          stepEntry.key,
-          {
-            ...stepEntry.value,
+
+      const now = Date.now();
+      const stepEntrys = await listByRunId(run.id);
+      for (const entry of stepEntrys) {
+        if (entry.value.status === "in_progress") {
+          atomicOp.set(entry.key, {
+            ...entry.value,
             status: "cancelled",
-            cancelled_at: Date.now(),
-          } as Step,
-        );
+            cancelled_at: now,
+          } as Step);
+        }
       }
+
       const { ok } = await atomicOp.commit();
       if (!ok) {
         console.log("[-] cancel run(%s) failed.", runId);
+      }
+    }
+  }
+
+  private static async expire(runId: string) {
+    const kvEntry = await getBySecondaryKey<Run>(runId, genRunKey);
+    const run = kvEntry.value as Run;
+    if (run.status === "queued" || run.status === "in_progress") {
+      const atomicOp = kv.atomic()
+        .check(kvEntry)
+        .set(kvEntry.key, {
+          ...run,
+          status: "expired",
+        } as Run);
+
+      const now = Date.now();
+      const stepEntrys = await listByRunId(run.id);
+      for (const entry of stepEntrys) {
+        if (entry.value.status === "in_progress") {
+          atomicOp.set(entry.key, {
+            ...entry.value,
+            status: "expired",
+            expired_at: now,
+          } as Step);
+        }
+      }
+
+      const { ok } = await atomicOp.commit();
+      if (!ok) {
+        console.log("[-] expire run(%s) failed.", runId);
       }
     }
   }
