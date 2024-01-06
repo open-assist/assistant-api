@@ -40,6 +40,11 @@ export class ValidationError extends Error {
 }
 
 /**
+ * status: 429
+ */
+export class TooManyRequests extends Error {}
+
+/**
  * status: 500
  */
 export class InternalServerError extends Error {
@@ -52,3 +57,7 @@ export class DbCommitError extends Error {
     this.cause = options?.cause || "Commit failed, try again later.";
   }
 }
+
+export class ServerError extends Error {}
+
+export class RateLimitExceeded extends Error {}

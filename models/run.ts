@@ -1,5 +1,5 @@
 import { z } from "$zod/mod.ts";
-import { metadata, metaSchema } from "$/models/_schema.ts";
+import { metadata, metaSchema, statusFieldsType } from "$/models/_schema.ts";
 import { THREAD } from "$/models/thread.ts";
 
 export const RUN = "run";
@@ -60,10 +60,9 @@ const runType = runSchema.omit({
     ], {
       description: "The status of the run.",
     }),
-    last_error: errorType,
     started_at: z.number().optional(),
   }),
-).merge(statusTimesSchema)
+).merge(statusFieldsType.omit({ status: true }))
   .merge(metaSchema.omit({
     updated_at: true,
   }));

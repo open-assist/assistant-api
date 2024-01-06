@@ -19,3 +19,25 @@ export const metaSchema = z.object({
 });
 
 export type Meta = z.infer<typeof metaSchema>;
+
+export const statusFieldsType = z.object({
+  status: z.enum([
+    "in_progress",
+    "cancelled",
+    "failed",
+    "completed",
+    "expired",
+  ], {
+    description: "The status of the run or step.",
+  }),
+  last_error: z.object({
+    code: z.enum(["server_error", "rate_limit_exceeded"]),
+    message: z.string(),
+  }).optional(),
+  expired_at: z.number().optional(),
+  cancelled_at: z.number().optional(),
+  failed_at: z.number().optional(),
+  completed_at: z.number().optional(),
+});
+
+export type StatusFields = z.infer<typeof statusFieldsType>;
