@@ -1,5 +1,6 @@
 import {
   getBySecondaryKey,
+  kv,
   updateObject,
   updateObjectByKey,
 } from "$/models/_db.ts";
@@ -13,17 +14,44 @@ import {
   getMessagesByThread,
   Message,
 } from "$/models/message.ts";
-import { createStep, Step, updateStepByPrimaryKey } from "$/models/step.ts";
+import {
+  createStep,
+  getByRunId,
+  Step,
+  updateStepByPrimaryKey,
+} from "$/models/step.ts";
 import { Google } from "$/helpers/google.ts";
 import { InternalServerError, TooManyRequests } from "$/models/errors.ts";
 import { StatusFields } from "$/models/_schema.ts";
 
 export interface RunJobMessage {
+  action: "execute" | "cancel" | "expire";
   runId: string;
 }
 
+export function isRunJobMessage(message: unknown) {
+  return (message as RunJobMessage).action !== undefined &&
+    (message as RunJobMessage).runId !== undefined;
+}
+
 export class RunJob {
-  public static async perform(runId: string) {
+  public static async perform(message: RunJobMessage) {
+    const { action, runId } = message;
+    switch (action) {
+      case "execute":
+        await this.execute(runId);
+        break;
+      case "cancel":
+        await this.cancel(runId);
+        break;
+      case "expire":
+    }
+  }
+
+  /**
+   * execute
+   */
+  private static async execute(runId: string) {
     // judge run status
     const oldRun = await getBySecondaryKey<Run>(runId, genRunKey);
     const run = oldRun.value as Run;
@@ -116,6 +144,37 @@ export class RunJob {
       await updateStepByPrimaryKey(runId, step.id, statusFields);
       await updateObjectByKey<Run>(oldRun.key, statusFields);
       return;
+    }
+  }
+
+  private static async cancel(runId: string) {
+    const kvEntry = await getBySecondaryKey<Run>(runId, genRunKey);
+    const run = kvEntry.value as Run;
+    if (run.status === "cancelling") {
+      const atomicOp = kv.atomic()
+        .check(kvEntry)
+        .set(
+          kvEntry.key,
+          { ...run, status: "cancelled", cancelled_at: Date.now() } as Run,
+        );
+      const stepEntrys = await getByRunId(run.id);
+      if (
+        stepEntrys.length === 1 && stepEntrys[0].value.status === "in_progress"
+      ) {
+        const stepEntry = stepEntrys[0];
+        atomicOp.set(
+          stepEntry.key,
+          {
+            ...stepEntry.value,
+            status: "cancelled",
+            cancelled_at: Date.now(),
+          } as Step,
+        );
+      }
+      const { ok } = await atomicOp.commit();
+      if (!ok) {
+        console.log("[-] cancel run(%s) failed.", runId);
+      }
     }
   }
 }

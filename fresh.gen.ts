@@ -15,6 +15,7 @@ import * as $v1_threads_thread_id_ from "./routes/v1/threads/[thread_id].ts";
 import * as $v1_threads_thread_id_messages_message_id_ from "./routes/v1/threads/[thread_id]/messages/[message_id].ts";
 import * as $v1_threads_thread_id_messages_index from "./routes/v1/threads/[thread_id]/messages/index.ts";
 import * as $v1_threads_thread_id_runs_run_id_ from "./routes/v1/threads/[thread_id]/runs/[run_id].ts";
+import * as $v1_threads_thread_id_runs_run_id_cancel from "./routes/v1/threads/[thread_id]/runs/[run_id]/cancel.ts";
 import * as $v1_threads_thread_id_runs_run_id_steps_step_id_ from "./routes/v1/threads/[thread_id]/runs/[run_id]/steps/[step_id].ts";
 import * as $v1_threads_thread_id_runs_run_id_steps_index from "./routes/v1/threads/[thread_id]/runs/[run_id]/steps/index.ts";
 import * as $v1_threads_thread_id_runs_index from "./routes/v1/threads/[thread_id]/runs/index.ts";
@@ -40,6 +41,8 @@ const manifest = {
       $v1_threads_thread_id_messages_index,
     "./routes/v1/threads/[thread_id]/runs/[run_id].ts":
       $v1_threads_thread_id_runs_run_id_,
+    "./routes/v1/threads/[thread_id]/runs/[run_id]/cancel.ts":
+      $v1_threads_thread_id_runs_run_id_cancel,
     "./routes/v1/threads/[thread_id]/runs/[run_id]/steps/[step_id].ts":
       $v1_threads_thread_id_runs_run_id_steps_step_id_,
     "./routes/v1/threads/[thread_id]/runs/[run_id]/steps/index.ts":

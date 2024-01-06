@@ -67,6 +67,12 @@ export const getByPrimaryKey = async (runId: string, stepId: string) => {
   return result;
 };
 
+export const getByRunId = async (runId: string) => {
+  const indexKey = genPrimaryIndexKey(runId);
+  const iter = kv.list<Step>({ prefix: indexKey }, { limit: 1, reverse: true });
+  return await Array.fromAsync(iter);
+};
+
 export const updateStepByPrimaryKey = async (
   runId: string,
   stepId: string,

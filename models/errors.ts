@@ -38,6 +38,15 @@ export class ValidationError extends Error {
     this.errors = errors;
   }
 }
+export class UnprocessableContent extends Error {
+  errors: object[] | undefined = [];
+
+  constructor(message?: string, options?: ErrorOptions, errors?: object[]) {
+    super(message, options);
+    this.message = message || "Unprocessable Content";
+    this.errors = errors;
+  }
+}
 
 /**
  * status: 429

@@ -1,6 +1,9 @@
 import { z } from "$zod/mod.ts";
 import { metadata, metaSchema, statusFieldsType } from "$/models/_schema.ts";
 import { THREAD } from "$/models/thread.ts";
+import { FreshContext } from "$fresh/server.ts";
+import { getByPrimaryKey, kv } from "$/models/_db.ts";
+import { DbCommitError } from "$/models/errors.ts";
 
 export const RUN = "run";
 export const RUN_OBJECT = "thread.run";
@@ -82,3 +85,25 @@ export const genPrimaryIndexKey = (
 ) => [THREAD, threadId, RUN];
 
 export const genSecondaryKey = (id: string) => [RUN, id];
+
+export async function getRun(ctx: FreshContext) {
+  const threadId = ctx.params.thread_id;
+  const runId = ctx.params.run_id;
+
+  return await getByPrimaryKey<Run>(genPrimaryKey(threadId, runId));
+}
+
+export async function cancelRun<T>(kvEntry: Deno.KvEntryMaybe<T>) {
+  const newRun = {
+    ...kvEntry.value,
+    status: "cancelling",
+  } as Run;
+
+  const { ok } = await kv.atomic().check(kvEntry)
+    .enqueue({ action: "cancel", runId: newRun.id })
+    .set(kvEntry.key, newRun)
+    .commit();
+  if (!ok) throw new DbCommitError();
+
+  return newRun;
+}

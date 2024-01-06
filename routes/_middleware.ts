@@ -5,6 +5,7 @@ import {
   NotFoundError,
   ProblemDetail,
   UnauthorizedError,
+  UnprocessableContent,
   ValidationError,
 } from "$/models/errors.ts";
 import { ZodError } from "$zod/mod.ts";
@@ -13,7 +14,11 @@ export interface State {
   organization: string;
 }
 
-export function renderJSON(data?: object | object[], status?: number) {
+export function renderJSON(
+  data?: object | object[],
+  status?: number,
+  headers?: HeadersInit,
+) {
   let body;
   if (!data) {
     body = data;
@@ -25,6 +30,7 @@ export function renderJSON(data?: object | object[], status?: number) {
   }
   return new Response(body, {
     status: status || 200,
+    headers,
   });
 }
 
@@ -51,6 +57,7 @@ export function handler(_req: Request, ctx: FreshContext) {
         problemDetail.errors = (error as ZodError).issues;
         break;
       case ValidationError:
+      case UnprocessableContent:
         problemDetail.status = 422;
         problemDetail.errors = (error as ValidationError).errors;
         break;
