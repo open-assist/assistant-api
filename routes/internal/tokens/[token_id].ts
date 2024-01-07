@@ -3,7 +3,7 @@ import { renderJSON } from "$/routes/_middleware.ts";
 import {
   DbCommitError,
   NotFoundError,
-  ValidationError,
+  UnprocessableContent,
 } from "$/models/errors.ts";
 import {
   genOrgByTokenKey,
@@ -41,7 +41,7 @@ export const handler: Handlers<Token | null> = {
 
     const result = tokenSchema.safeParse(await req.json());
     if (!result.success) {
-      throw new ValidationError("", {}, result.error.issues);
+      throw new UnprocessableContent("", {}, result.error.issues);
     }
 
     const token = {
@@ -61,7 +61,7 @@ export const handler: Handlers<Token | null> = {
   async DELETE(_req: Request, ctx: FreshContext) {
     const oldToken = await getToken(ctx);
     const { key, value } = oldToken;
-    const secondaryKey = genSecondaryKey(key[1], value.content);
+    const secondaryKey = genSecondaryKey(key[1] as string, value.content);
     const orgByTokenKey = genOrgByTokenKey(value.content);
 
     const { ok } = await kv.atomic().check(oldToken).delete(key).delete(

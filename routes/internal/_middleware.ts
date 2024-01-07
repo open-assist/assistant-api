@@ -1,5 +1,5 @@
 import { FreshContext } from "$fresh/server.ts";
-import { UnauthorizedError } from "$/models/errors.ts";
+import { BadRequest } from "$/models/errors.ts";
 import { State } from "$/routes/_middleware.ts";
 
 export function handler(
@@ -8,7 +8,7 @@ export function handler(
 ) {
   const organization = req.headers.get("X-Assist-Org-Id");
   if (!organization) {
-    throw new UnauthorizedError("Missing X-Assist-Org-Id header.");
+    throw new BadRequest("Missing X-Assist-Org-Id header.");
   }
   ctx.state.organization = organization;
 

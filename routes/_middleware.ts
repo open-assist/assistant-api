@@ -4,9 +4,8 @@ import {
   InternalServerError,
   NotFoundError,
   ProblemDetail,
-  UnauthorizedError,
+  Unauthorized,
   UnprocessableContent,
-  ValidationError,
 } from "$/models/errors.ts";
 import { ZodError } from "$zod/mod.ts";
 
@@ -15,20 +14,11 @@ export interface State {
 }
 
 export function renderJSON(
-  data?: object | object[],
+  data?: object,
   status?: number,
   headers?: HeadersInit,
 ) {
-  let body;
-  if (!data) {
-    body = data;
-    // } else if (Array.isArray(data)) {
-    //   body = JSON.stringify(data);
-  } else {
-    body = JSON.stringify(data);
-    // body = JSON.stringify(data, Object.keys(data).sort());
-  }
-  return new Response(body, {
+  return new Response(data && JSON.stringify(data), {
     status: status || 200,
     headers,
   });
@@ -58,7 +48,10 @@ export function handler(req: Request, ctx: FreshContext) {
     };
 
     switch (error.constructor) {
-      case UnauthorizedError:
+      case Request:
+        problemDetail.status = 400;
+        break;
+      case Unauthorized:
         problemDetail.status = 401;
         break;
       case NotFoundError:
@@ -70,10 +63,9 @@ export function handler(req: Request, ctx: FreshContext) {
         problemDetail.title = "Unprocessable Content";
         problemDetail.errors = (error as ZodError).issues;
         break;
-      case ValidationError:
       case UnprocessableContent:
         problemDetail.status = 422;
-        problemDetail.errors = (error as ValidationError).errors;
+        problemDetail.errors = (error as UnprocessableContent).errors;
         break;
       case DbCommitError:
       case InternalServerError:

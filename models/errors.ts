@@ -8,9 +8,23 @@ export interface ProblemDetail {
 }
 
 /**
+ * status : 400
+ */
+export class BadRequest extends Error {
+  constructor(message?: string, options?: ErrorOptions) {
+    super(message, options);
+    this.message = message || "Bad Request";
+  }
+}
+
+/**
  * status: 401
  */
-export class UnauthorizedError extends Error {
+export class Unauthorized extends Error {
+  constructor(message?: string, options?: ErrorOptions) {
+    super(message, options);
+    this.message = message || "Unauthorized";
+  }
 }
 
 /**
@@ -29,15 +43,6 @@ export class NotFoundError extends Error {
 /**
  * status: 422
  */
-export class ValidationError extends Error {
-  errors: object[] | undefined = [];
-
-  constructor(message?: string, options?: ErrorOptions, errors?: object[]) {
-    super(message, options);
-    this.message = message || "Unprocessable Content";
-    this.errors = errors;
-  }
-}
 export class UnprocessableContent extends Error {
   errors: object[] | undefined = [];
 

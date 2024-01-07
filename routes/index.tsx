@@ -4,7 +4,7 @@ import manifest from "$/fresh.gen.ts";
 export const handler: Handlers = {
   GET(_req, _ctx) {
     const routes = Object.keys(manifest.routes)
-      .map((r) => r.replaceAll(/\.\/routes|\.ts|\/index\.ts/gm, ""))
+      .map((r) => r.replaceAll(/\.\/routes|\.ts|\/index/gm, ""))
       .filter((r) => !r.endsWith("_middleware") && r.startsWith("/v1")).reduce(
         (previous, current) => {
           const name = current.slice(1).replaceAll(/\[|\]/gm, "").split("/")

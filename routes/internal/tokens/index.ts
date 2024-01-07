@@ -10,7 +10,7 @@ import {
   TOKEN_PREFIX,
   tokenSchema,
 } from "$/models/token.ts";
-import { DbCommitError, ValidationError } from "$/models/errors.ts";
+import { DbCommitError, UnprocessableContent } from "$/models/errors.ts";
 
 // deno-lint-ignore ban-ts-comment
 // @ts-ignore
@@ -35,7 +35,7 @@ export const handler: Handlers<Token | null> = {
   async POST(req: Request, ctx: FreshContext) {
     const result = tokenSchema.safeParse(await req.json());
     if (!result.success) {
-      throw new ValidationError(undefined, undefined, result.error.issues);
+      throw new UnprocessableContent(undefined, undefined, result.error.issues);
     }
 
     const token = result.data as Token;
