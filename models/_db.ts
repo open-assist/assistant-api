@@ -1,4 +1,3 @@
-/// <reference lib="deno.unstable"/>
 import { DbCommitError, NotFoundError } from "$/models/errors.ts";
 import { ListParams } from "$/models/list.ts";
 import { Meta } from "$/models/_schema.ts";

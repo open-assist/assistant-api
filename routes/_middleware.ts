@@ -34,7 +34,21 @@ export function renderJSON(
   });
 }
 
-export function handler(_req: Request, ctx: FreshContext) {
+export function handler(req: Request, ctx: FreshContext) {
+  const headers: [string, string][] = [
+    ["Content-Type", "application/json"],
+    ["Access-Control-Allow-Origin", req.headers.get("Origin") || "*"],
+    ["Access-Control-Allow-Credentials", "true"],
+    ["Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS"],
+  ];
+
+  if (req.method == "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers,
+    });
+  }
+
   return ctx.next().catch((error: Error) => {
     const problemDetail: ProblemDetail = {
       type: "about:blank",
@@ -69,9 +83,12 @@ export function handler(_req: Request, ctx: FreshContext) {
 
     return new Response(JSON.stringify(problemDetail), {
       status: problemDetail.status,
+      headers,
     });
   }).then((resp) => {
-    resp.headers.set("Content-Type", "application/json");
+    for (const header of headers) {
+      resp.headers.set(header[0], header[1]);
+    }
     return resp;
   });
 }
