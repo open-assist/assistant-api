@@ -7,7 +7,7 @@ export interface List<T> {
   data: T[];
   first_id?: string;
   last_id?: string;
-  has_more: boolean;
+  has_more?: boolean;
 }
 
 export const listParamsSchema = z.object({
